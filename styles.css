@@ -38,6 +38,18 @@ div.question-field div {
     display: inline-block;
 }
 
+div.radio-input {
+    display: inline-block;
+}
+
+div.radio-input label {
+    position: relative;
+    top: -3px;
+    font-size: 1.4em;
+    padding-right: 15px;
+}
+
 button {
+    display: block;
     margin-top: 10px;
 }
