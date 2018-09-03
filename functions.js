@@ -63,11 +63,14 @@ function initialize() {
 
     if (document.getElementById('forward').checked) {
         console.log('FORWARD METHOD');
-        answerElement.value = forwardSolution(question);
+        answerElement.value = forwardSolution(question) === undefined ? 'Sem solução' : knowledgeBase[question];
     } else if (document.getElementById('backward').checked) {
         console.log('BACKWARD METHOD');
+        answerElement.value = backwardSolution(question) === undefined ? 'Sem solução' : knowledgeBase[question];
     } else {
         console.log('HYBRID METHOD');
+        const ret = hybridSolution(question);
+        answerElement.value = ret === undefined ? 'Sem solução' : (ret ? knowledgeBase[question] : 'Contradição');
     }
 }
 
@@ -99,14 +102,14 @@ function forwardSolution(question) {
         }
     } while (prevKnowledgeSize !== Object.keys(knowledgeBase).length);
 
-    return knowledgeBase[question] === undefined ? 'Sem solução' : knowledgeBase[question];
+    return knowledgeBase[question];
 }
 
 function solveTree(root) {
     console.log('solve', root);
     if (typeof root === 'string') {
         const baseValue = knowledgeBase[root.replace(/!/g, '')];
-        return baseValue !== undefined && (booleanValue(root) ? baseValue : !baseValue);
+        return baseValue === undefined ? undefined : (booleanValue(root) ? baseValue : !baseValue);
     }
     return solveTree(root.a) && solveTree(root.b);
 }
@@ -129,4 +132,74 @@ function booleanValue(term) {
         return !booleanValue(term.substr(1));
     }
     return true;
+}
+
+function treeContains(root, element) {
+    if (typeof root === 'string') {
+        return element === root.replace(/!/g, '');
+    }
+    return treeContains(root.a, element) || treeContains(root.b, element);
+}
+
+function findUndefinedElements(root) {
+    if (typeof root === 'string') {
+        if (knowledgeBase[root] === undefined) {
+            return [root];
+        }
+        return [];
+    }
+
+    const ans = findUndefinedElements(root.a);
+    const ret = findUndefinedElements(root.b);
+    for (let i = 0; i < ret.length; i++) {
+        if (ans.indexOf(ret[i]) === -1) {
+            ans.push(ret[i]);
+        }
+    }
+    return ans;
+
+}
+
+function backwardSolution(question, alreadyChecked = []) {
+    console.log('backward', question);
+    if (knowledgeBase[question] !== undefined) {
+        return knowledgeBase[question];
+    } else if (alreadyChecked.indexOf(question) !== -1) {
+        return undefined;
+    }
+
+    alreadyChecked.push(question);
+    for (let i = 0; i < rulesBase.length; i++) {
+        if (treeContains(rulesBase[i].consequent, question)) {
+            const sol = solveTree(rulesBase[i].antecedent);
+            if (sol === undefined) {
+                const needsToResolve = findUndefinedElements(rulesBase[i].antecedent);
+                console.log('needsToResolve', needsToResolve);
+                needsToResolve.forEach(element => {
+                    backwardSolution(element)
+                });
+
+                if (solveTree(rulesBase[i].antecedent)) {
+                    addToKnowledgeBase(rulesBase[i].consequent);
+                }
+            } else if (sol) {
+                addToKnowledgeBase(rulesBase[i].consequent);
+            }
+        }
+    }
+
+    return knowledgeBase[question];
+}
+
+function hybridSolution(question) {
+    const bkpKnowledgeBase = Object.assign({}, this.knowledgeBase);
+
+    const forwardSol = this.forwardSolution(question);
+    this.knowledgeBase = bkpKnowledgeBase;
+    const backwardSol = this.backwardSolution(question);
+
+    if (forwardSol === backwardSol === undefined) {
+        return undefined;
+    }
+    return forwardSol === backwardSol;
 }
